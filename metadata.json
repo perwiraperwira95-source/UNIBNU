@@ -1,0 +1,6 @@
+{
+  "name": "E-Learning Universitas Ibnu Rusman",
+  "description": "Platform E-Learning Resmi Universitas Ibnu Rusman - Menghubungkan Admin, Dosen, dan Mahasiswa dalam satu ekosistem akademik modern, unggul, dan berkarakter.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
