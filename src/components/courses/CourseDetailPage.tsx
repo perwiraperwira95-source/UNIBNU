@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { Material } from '../../types';
+import { MaterialReaderModal } from '../materials/MaterialReaderModal';
 import {
   ArrowLeft,
   BookOpen,
@@ -30,9 +32,11 @@ export const CourseDetailPage: React.FC = () => {
     setActivePage,
     navigateToExamRunner,
     incrementMaterialDownload,
+    showToast,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'materials' | 'assignments' | 'exams' | 'attendance'>('overview');
+  const [selectedReadingMaterial, setSelectedReadingMaterial] = useState<Material | null>(null);
 
   const course = courses.find(c => c.id === selectedCourseId) || courses[0];
   if (!course) return null;
@@ -293,16 +297,37 @@ export const CourseDetailPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => {
-                      incrementMaterialDownload(mat.id);
-                      alert(`Mengunduh dokumen: ${mat.title}`);
-                    }}
-                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-amber-400 font-semibold rounded-xl text-xs flex items-center space-x-1.5 whitespace-nowrap self-start sm:self-center"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Unduh ({mat.downloadCount})</span>
-                  </button>
+                  <div className="flex items-center space-x-2 self-start sm:self-center">
+                    {currentUser?.role === 'mahasiswa' ? (
+                      <button
+                        onClick={() => setSelectedReadingMaterial(mat)}
+                        className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 text-slate-950 font-bold rounded-xl text-xs flex items-center space-x-1.5 whitespace-nowrap shadow-xs transition-all"
+                      >
+                        <BookOpen className="w-3.5 h-3.5" />
+                        <span>Baca Modul ({mat.readingTimeMinutes || 15} Mnt)</span>
+                      </button>
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => setSelectedReadingMaterial(mat)}
+                          className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 text-slate-950 font-bold rounded-xl text-xs flex items-center space-x-1.5 whitespace-nowrap shadow-xs"
+                        >
+                          <BookOpen className="w-3.5 h-3.5" />
+                          <span>Baca</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            incrementMaterialDownload(mat.id);
+                            showToast(`Mengunduh berkas arsip: ${mat.title}`, 'info');
+                          }}
+                          className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs flex items-center space-x-1 whitespace-nowrap"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Arsip</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))
             )}
@@ -445,6 +470,18 @@ export const CourseDetailPage: React.FC = () => {
             </table>
           </div>
         </div>
+      )}
+
+      {/* Interactive Material Reading Modal */}
+      {selectedReadingMaterial && (
+        <MaterialReaderModal
+          material={selectedReadingMaterial}
+          onClose={() => setSelectedReadingMaterial(null)}
+          onCompleted={() => {
+            showToast(`Selesai mempelajari modul ${selectedReadingMaterial.title}`, 'success');
+            setSelectedReadingMaterial(null);
+          }}
+        />
       )}
     </div>
   );

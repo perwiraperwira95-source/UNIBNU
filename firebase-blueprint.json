@@ -1,0 +1,68 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile for university e-learning platform (Admin, Dosen, Mahasiswa)",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "User ID matching auth UID"
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the user",
+          "maxLength": 128
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Email address"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "dosen", "mahasiswa"],
+          "description": "Academic system role"
+        },
+        "identifier": {
+          "type": "string",
+          "description": "NIM for mahasiswa, NIDN for dosen, NIP for admin",
+          "maxLength": 32
+        },
+        "avatar": {
+          "type": "string",
+          "description": "URL to avatar profile photo"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Aktif", "Cuti", "Non-Aktif"],
+          "description": "Academic status"
+        },
+        "faculty": {
+          "type": "string",
+          "description": "Faculty name",
+          "maxLength": 128
+        },
+        "studyProgram": {
+          "type": "string",
+          "description": "Study program name",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Record creation timestamp"
+        }
+      },
+      "required": ["id", "name", "email", "role", "identifier", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
+      },
+      "description": "Collection of university user accounts"
+    }
+  }
+}

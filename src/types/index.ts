@@ -64,6 +64,25 @@ export interface Course {
   studentsEnrolled: number;
 }
 
+export interface MaterialSection {
+  heading: string;
+  subheading?: string;
+  content: string;
+  paragraphs?: string[];
+  analogies?: string;
+  keyTakeaways?: string[];
+  codeSnippet?: string;
+  tips?: string;
+  clinicalCase?: string;
+}
+
+export interface MaterialQuiz {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+}
+
 export interface Material {
   id: string;
   courseId: string;
@@ -77,6 +96,12 @@ export interface Material {
   uploadDate: string;
   uploadedBy: string;
   downloadCount: number;
+  readingTimeMinutes?: number;
+  overview?: string;
+  learningObjectives?: string[];
+  sections?: MaterialSection[];
+  summary?: string;
+  quizQuestions?: MaterialQuiz[];
 }
 
 export interface Assignment {

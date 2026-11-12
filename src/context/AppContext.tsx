@@ -38,6 +38,7 @@ import {
   INITIAL_ACADEMIC_EVENTS,
   INITIAL_ACTIVITY_LOGS,
 } from '../data/mockData';
+import { auth, googleProvider, signInWithPopup, firebaseSignOut } from '../lib/firebase';
 
 export type ActivePage =
   | 'landing'
@@ -106,6 +107,7 @@ interface AppContextType {
   // Auth actions
   login: (identifier: string, role?: UserRole) => boolean;
   loginAs: (role: UserRole) => void;
+  loginWithGoogle: (role?: UserRole) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   registerUser: (userData: Partial<User> & { password?: string }) => { success: boolean; message: string };
   updateProfile: (updatedData: Partial<User>) => void;
@@ -179,11 +181,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
 
-  const [users, setUsers] = useState<User[]>(() => getStored('users', INITIAL_USERS));
+  const [users, setUsers] = useState<User[]>(() => {
+    const stored = getStored<User[]>('users', INITIAL_USERS);
+    if (!stored.find(u => u.id === 'dsn-3')) {
+      const dsn3 = INITIAL_USERS.find(u => u.id === 'dsn-3');
+      if (dsn3) return [dsn3, ...stored];
+    }
+    return stored;
+  });
   const [faculties, setFaculties] = useState<Faculty[]>(() => getStored('faculties', INITIAL_FACULTIES));
-  const [studyPrograms, setStudyPrograms] = useState<StudyProgram[]>(() => getStored('studyPrograms', INITIAL_STUDY_PROGRAMS));
-  const [courses, setCourses] = useState<Course[]>(() => getStored('courses', INITIAL_COURSES));
-  const [materials, setMaterials] = useState<Material[]>(() => getStored('materials', INITIAL_MATERIALS));
+  const [studyPrograms, setStudyPrograms] = useState<StudyProgram[]>(() => {
+    const stored = getStored<StudyProgram[]>('studyPrograms', INITIAL_STUDY_PROGRAMS);
+    if (!stored.find(sp => sp.id === 'prodi-7')) {
+      const prodi7 = INITIAL_STUDY_PROGRAMS.find(sp => sp.id === 'prodi-7');
+      if (prodi7) return [...stored, prodi7];
+    }
+    return stored;
+  });
+  const [courses, setCourses] = useState<Course[]>(() => {
+    const stored = getStored<Course[]>('courses', INITIAL_COURSES);
+    if (!stored.find(c => c.id === 'crs-6')) {
+      const crs6 = INITIAL_COURSES.find(c => c.id === 'crs-6');
+      if (crs6) return [...stored, crs6];
+    }
+    return stored;
+  });
+  const [materials, setMaterials] = useState<Material[]>(() => {
+    const stored = getStored<Material[]>('materials', INITIAL_MATERIALS);
+    if (!stored || stored.length === 0 || !stored.find(m => m.id === 'mat-med-50')) {
+      return INITIAL_MATERIALS;
+    }
+    return stored;
+  });
   const [assignments, setAssignments] = useState<Assignment[]>(() => getStored('assignments', INITIAL_ASSIGNMENTS));
   const [submissions, setSubmissions] = useState<Submission[]>(() => getStored('submissions', INITIAL_SUBMISSIONS));
   const [exams, setExams] = useState<Exam[]>(() => getStored('exams', INITIAL_EXAMS));
@@ -293,9 +322,77 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const logout = () => {
+  const loginWithGoogle = async (rolePreference: UserRole = 'mahasiswa'): Promise<{ success: boolean; message: string }> => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const gUser = result.user;
+      if (!gUser || !gUser.email) {
+        return { success: false, message: 'Gagal mendapatkan data akun Google.' };
+      }
+
+      const email = gUser.email.toLowerCase();
+      const existing = users.find(u => u.email.toLowerCase() === email);
+
+      if (existing) {
+        const updatedUser: User = {
+          ...existing,
+          name: existing.name || gUser.displayName || 'Pengguna Google',
+          avatar: gUser.photoURL || existing.avatar,
+        };
+        setUsers(prev => prev.map(u => u.id === existing.id ? updatedUser : u));
+        setCurrentUser(updatedUser);
+        setActivePage('dashboard');
+        showToast(`Login Google Berhasil! Selamat datang, ${updatedUser.name}.`, 'success');
+        addLog(`Masuk menggunakan Akun Google Resmi: ${email}`);
+        return { success: true, message: 'Login berhasil' };
+      } else {
+        const randomNim = `202608${Math.floor(10000 + Math.random() * 90000)}`;
+        const newUser: User = {
+          id: gUser.uid,
+          name: gUser.displayName || 'Mahasiswa Baru',
+          email: gUser.email,
+          identifier: rolePreference === 'dosen' ? `04${Math.floor(10000000 + Math.random() * 90000000)}` : randomNim,
+          role: rolePreference,
+          status: 'Aktif',
+          faculty: 'Fakultas Teknik & Ilmu Komputer',
+          studyProgram: 'Teknik Informatika',
+          semester: 1,
+          gender: 'Laki-laki',
+          avatar: gUser.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+          ipk: 3.80,
+          totalSks: 20,
+        };
+
+        setUsers(prev => [newUser, ...prev]);
+        setCurrentUser(newUser);
+        setActivePage('dashboard');
+        showToast(`Akun Google terhubung! Selamat datang di Universitas Ibnu Rusman, ${newUser.name}.`, 'success');
+        addLog(`Pendaftaran otomatis akun Google: ${email} (${newUser.identifier})`);
+        return { success: true, message: 'Akun Google berhasil didaftarkan' };
+      }
+    } catch (error: any) {
+      console.error('Google Sign-in Error:', error);
+      let msg = 'Gagal melakukan login dengan akun Google.';
+      if (error?.code === 'auth/popup-closed-by-user') {
+        msg = 'Jendela login Google ditutup sebelum selesai.';
+      } else if (error?.code === 'auth/cancelled-popup-request') {
+        msg = 'Permintaan login Google dibatalkan.';
+      } else if (error?.message) {
+        msg = `Gagal login Google: ${error.message}`;
+      }
+      showToast(msg, 'error');
+      return { success: false, message: msg };
+    }
+  };
+
+  const logout = async () => {
     if (currentUser) {
       addLog(`Keluar dari sistem E-Learning`);
+    }
+    try {
+      await firebaseSignOut(auth);
+    } catch (e) {
+      console.warn('Firebase signout warning', e);
     }
     setCurrentUser(null);
     setActivePage('landing');
@@ -711,6 +808,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         login,
         loginAs,
+        loginWithGoogle,
         logout,
         registerUser,
         updateProfile,
